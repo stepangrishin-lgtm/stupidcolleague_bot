@@ -218,14 +218,11 @@ async def reminder_loop():
                 _, chat_id, user_id, text = r
                 await bot.send_message(
                     chat_id,
-                    f"{random.choice([
-                        'Я тут напомню, пока никто не сделал вид что забыл 🙂',
-                        'Это всё ещё актуально, если что',
-                        'Неловко получается, но я напомню',
-                        'Я просто оставлю это здесь'
-                    ])}\n<a href='tg://user?id={user_id}'>коллега</a>",
+                    random.choice(phrases["reminder_phrases"]) + 
+                    f"\n<a href='tg://user?id={user_id}'>коллега</a>",
                     parse_mode="HTML",
-                    reply_to_message_id=message_id
+                    reply_to_message_id=message_id,
+                    allow_sending_without_reply=True
                 )
                 await db.execute("DELETE FROM reminders WHERE id=?", (r[0],))
 
