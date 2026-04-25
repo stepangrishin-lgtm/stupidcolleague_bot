@@ -2,7 +2,7 @@ import asyncio
 import json
 import random
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReactionTypeEmoji
@@ -17,7 +17,7 @@ with open("phrases.json", "r", encoding="utf-8") as f:
     phrases = json.load(f)
 
 TOKEN = config["token"]
-TIMEZONE = pytz.timezone(config["timezone"])
+TIMEZONE = ZoneInfo(config["timezone"])
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
