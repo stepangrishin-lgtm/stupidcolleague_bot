@@ -109,7 +109,7 @@ async def human_reply(message: Message, text: str):
     await asyncio.sleep(delay)
 
     # иногда "..." перед ответом
-    if random.random() < 0.25:
+    if random.random() < 0.05:
         await message.reply("...")
         await asyncio.sleep(random.uniform(0.5, 1.2))
 
@@ -153,12 +153,12 @@ async def handle_message(message: Message):
         return
 
     # вопрос
-    if "?" in text and random.random() < 0.5:
+    if "?" in text and random.random() < 0.05:
         await human_reply(message, get_unique(chat_id, phrases["questions"]))
         return
 
     # короткое
-    if len(text.split()) <= 2 and random.random() < 0.3:
+    if len(text.split()) <= 2 and random.random() < 0.03:
         await human_reply(message, get_unique(chat_id, phrases["short"]))
         return
 
