@@ -41,6 +41,7 @@ async def init_db():
             id INTEGER PRIMARY KEY,
             chat_id INTEGER,
             user_id INTEGER,
+            message_id INTEGER,
             text TEXT,
             remind_at INTEGER
         )
@@ -157,8 +158,8 @@ async def handle(message: Message):
     if dt := parse_time(text):
         async with aiosqlite.connect("database.db") as db:
             await db.execute(
-                "INSERT INTO reminders VALUES (NULL, ?, ?, ?, ?)",
-                (chat_id, user_id, text, int(dt.timestamp()))
+                "INSERT INTO reminders VALUES (NULL, ?, ?, ?, ?, ?)",
+                (chat_id, user_id, message.message_id, text, int(dt.timestamp()))
             )
             await db.commit()
 
@@ -208,7 +209,7 @@ async def reminder_loop():
 
         async with aiosqlite.connect("database.db") as db:
             cur = await db.execute(
-                "SELECT id, chat_id, user_id, text FROM reminders WHERE remind_at <= ?",
+                "SELECT id, chat_id, user_id, message_id, text FROM reminders WHERE remind_at <= ?",
                 (now,)
             )
             rows = await cur.fetchall()
@@ -217,8 +218,14 @@ async def reminder_loop():
                 _, chat_id, user_id, text = r
                 await bot.send_message(
                     chat_id,
-                    f"<a href='tg://user?id={user_id}'>коллега</a>, ты просил напомнить: {text}",
-                    parse_mode="HTML"
+                    f"{random.choice([
+                        'Я тут напомню, пока никто не сделал вид что забыл 🙂',
+                        'Это всё ещё актуально, если что',
+                        'Неловко получается, но я напомню',
+                        'Я просто оставлю это здесь'
+                    ])}\n<a href='tg://user?id={user_id}'>коллега</a>",
+                    parse_mode="HTML",
+                    reply_to_message_id=message_id
                 )
                 await db.execute("DELETE FROM reminders WHERE id=?", (r[0],))
 
