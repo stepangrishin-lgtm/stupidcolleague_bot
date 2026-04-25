@@ -138,7 +138,7 @@ async def get_target_user(chat_id):
 
 # ===== HANDLER =====
 
-@dp.message()
+@dp.message(~F.text.startswith("/"))
 async def handle(message: Message):
     chat_id = message.chat.id
     user_id = message.from_user.id
@@ -216,7 +216,7 @@ async def reminder_loop():
             rows = await cur.fetchall()
 
             for r in rows:
-                _, chat_id, user_id, text = r
+                _, chat_id, user_id, message_id, text = r
                 await bot.send_message(
                     chat_id,
                     random.choice(phrases["reminder_phrases"]) + 
