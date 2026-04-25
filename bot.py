@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReactionTypeEmoji
 from aiogram.enums import ChatAction
+from aiogram import F
 import aiosqlite
 
 # ===== LOAD =====
@@ -293,6 +294,40 @@ async def random_loop():
                     await asyncio.sleep(random.uniform(1.5, 3.5))
 
                     await bot.send_message(chat, text, parse_mode="HTML")
+
+# ===== Запуск рассылки =====
+
+@dp.message(F.text.startswith("/broadcast"))
+async def broadcast_command(message: Message):
+    admin_id = config.get("admin_id")
+
+    # проверка доступа
+    if message.from_user.id != admin_id:
+        return
+
+    # текст после команды
+    text = message.text.replace("/broadcast", "", 1).strip()
+
+    if not text:
+        await message.reply("Напиши текст после команды")
+        return
+
+    # получаем все чаты
+    async with aiosqlite.connect("database.db") as db:
+        cur = await db.execute("SELECT DISTINCT chat_id FROM messages")
+        chats = [row[0] for row in await cur.fetchall()]
+
+    sent = 0
+
+    for chat_id in chats:
+        try:
+            await bot.send_message(chat_id, text)
+            sent += 1
+            await asyncio.sleep(0.2)  # анти-спам
+        except:
+            pass
+
+    await message.reply(f"Отправлено в {sent} чатов")
 
 # ===== START =====
 
