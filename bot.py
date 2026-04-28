@@ -144,7 +144,7 @@ def detect_wave(history, keywords, threshold=3):
 
 # ===== HANDLER =====
 
-@dp.message(~F.text.startswith("/"))
+@dp.message(F.text & ~F.text.startswith("/"))
 async def handle(message: Message):
     chat_id = message.chat.id
     user_id = message.from_user.id
