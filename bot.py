@@ -304,15 +304,24 @@ async def broadcast_command(message: Message):
 async def main():
     print("BOT STARTING...")
 
+    await bot.delete_webhook(drop_pending_updates=True)
+
     await init_db()
 
-    asyncio.create_task(reminder_loop())
-    asyncio.create_task(random_loop())
-    asyncio.create_task(scheduler())
+    loop = asyncio.get_running_loop()
 
-    print("BOT STARTED")
+    tasks = [
+        loop.create_task(reminder_loop()),
+        loop.create_task(random_loop()),
+        loop.create_task(scheduler()),
+    ]
+
+    print("BACKGROUND TASKS STARTED")
 
     await dp.start_polling(bot)
+
+    # защита от завершения процесса
+    await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
     asyncio.run(main())
