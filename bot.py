@@ -300,6 +300,10 @@ async def broadcast_command(message: Message):
         print("BROADCAST ERROR:", e)
 
 # ===== START =====
+async def heartbeat():
+    while True:
+        print("alive")
+        await asyncio.sleep(30)
 
 async def main():
     print("BOT STARTING...")
@@ -312,6 +316,7 @@ async def main():
         reminder_loop(),
         random_loop(),
         scheduler(),
+        heartbeat()
     )
 
 if __name__ == "__main__":
