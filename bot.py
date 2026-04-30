@@ -94,7 +94,7 @@ def parse_time(text):
 
 async def human_reply(message: Message, text: str):
     await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
-    await asyncio.sleep(random.uniform(1, 2.5))
+    await asyncio.sleep(random.uniform(1, 3.5))
     await message.reply(text)
 
 # ===== DECISION ENGINE v7.1 =====
@@ -137,7 +137,7 @@ async def decide_action(chat_id, text, lower, history):
 
     if 9 <= now.hour < 18:
         if last_random.get(chat_id) != now.date():
-            if random.random() < 0.1:
+            if random.random() < 0.01:
                 candidates.append((1, ("message", random.choice(
                     phrases.get("random", ["..."])
                 ))))
