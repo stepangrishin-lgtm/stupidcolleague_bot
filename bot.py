@@ -12,10 +12,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReactionTypeEmoji
 from aiogram.enums import ChatAction
 
-
-# ======================
-# LOAD CONFIG
-# ======================
+# ===== LOAD =====
 
 with open("config.json", encoding="utf-8") as f:
     config = json.load(f)
@@ -29,11 +26,9 @@ dp = Dispatcher()
 TIMEZONE = ZoneInfo(config["timezone"])
 
 chat_history = {}
-last_messages = {}
+last_random = {}
 
-# ======================
-# DB
-# ======================
+# ===== DB =====
 
 async def init_db():
     async with aiosqlite.connect("database.db") as db:
@@ -55,18 +50,7 @@ async def init_db():
         )
         """)
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS promises (
-            id INTEGER PRIMARY KEY,
-            chat_id INTEGER,
-            user_id INTEGER,
-            text TEXT,
-            created_at INTEGER
-        )
-        """)
-
         await db.commit()
-
 
 async def save_message(chat_id, user_id):
     async with aiosqlite.connect("database.db") as db:
@@ -76,20 +60,17 @@ async def save_message(chat_id, user_id):
         )
         await db.commit()
 
-
-# ======================
-# UTILS
-# ======================
+# ===== UTILS =====
 
 def detect_wave(history, keywords, threshold=3):
     return sum(any(k in msg for k in keywords) for msg in history) >= threshold
 
-
-def is_promise(text):
-    return any(x in text.lower() for x in [
-        "сделаю", "посмотрю", "возьму", "попробую", "позже"
-    ])
-
+def detect_mode(history):
+    if detect_wave(history, ["принято", "ок", "согласен"]):
+        return "work"
+    if detect_wave(history, ["ахах", "лол", "😂", "🤣"]):
+        return "chat"
+    return "neutral"
 
 def parse_time(text):
     now = datetime.now(TIMEZONE)
@@ -111,117 +92,67 @@ def parse_time(text):
 
     return None
 
-
 async def human_reply(message: Message, text: str):
     await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     await asyncio.sleep(random.uniform(1, 2.5))
     await message.reply(text)
 
+# ===== DECISION ENGINE v7.1 =====
 
-async def get_target_user(chat_id):
-    async with aiosqlite.connect("database.db") as db:
-        cur = await db.execute("""
-            SELECT user_id, COUNT(*) as cnt
-            FROM messages
-            WHERE chat_id = ?
-            GROUP BY user_id
-        """, (chat_id,))
-        rows = await cur.fetchall()
+async def decide_action(chat_id, text, lower, history):
 
-    if not rows:
-        return None
+    # ===== 1. TRIGGERS (жёсткий приоритет) =====
+    for t, arr in phrases.get("triggers", {}).items():
+        if t in lower:
+            return ("reply", random.choice(arr))
 
-    pool = []
-    for uid, cnt in rows:
-        pool.extend([uid] * min(cnt, 10))
-
-    return random.choice(pool)
-
-
-# ======================
-# DECISION ENGINE (V7 CORE)
-# ======================
-
-async def decide_action(chat_id, user_id, text, lower, history):
+    mode = detect_mode(history)
 
     candidates = []
 
-    # ===== 1. TRIGGERS =====
-    for t, arr in phrases.get("triggers", {}).items():
-        if t in lower:
-            candidates.append({
-                "type": "trigger",
-                "score": 10,
-                "action": ("reply", random.choice(arr))
-            })
+    # ===== 2. CONTEXT =====
 
-    # ===== 2. CONTEXT WAVE =====
     if len(history) > 5:
 
+        # 🎉 ДР
         if detect_wave(history, ["др", "с днем", "поздравляю"]):
-            candidates.append({
-                "type": "context",
-                "score": 6,
-                "action": ("reply", "С днём рождения 🎉")
-            })
+            candidates.append((5, ("reply", "С днём рождения 🎉")))
 
-        if detect_wave(history, ["принято", "ок", "понял"]):
-            candidates.append({
-                "type": "context",
-                "score": 5,
-                "action": ("reply", "принято")
-            })
+        # ===== WORK MODE =====
+        if mode == "work":
+            if detect_wave(history, ["принято", "ок", "понял"]):
+                candidates.append((6, ("reply", random.choice(["принято", "ок"]))))
 
-        if detect_wave(history, ["ахах", "лол", "😂", "🤣"]):
-            candidates.append({
-                "type": "context",
-                "score": 4,
-                "action": ("reply", random.choice(["😂", "ну да...", "смешно"]))
-            })
+        # ===== CHAT MODE =====
+        if mode == "chat":
+            if detect_wave(history, ["ахах", "лол", "😂", "🤣"]):
+                candidates.append((4, ("reply", random.choice(["😂", "ну да", "смешно"]))))
 
     # ===== 3. REACTIONS =====
     if any(w in lower for w in phrases.get("agree_words", [])):
-        candidates.append({
-            "type": "reaction",
-            "score": 7,
-            "action": ("react", "👍")
-        })
+        candidates.append((7, ("react", "👍")))
 
-    # ===== 4. TROLL =====
-    if random.random() < 0.25:
-        target = await get_target_user(chat_id)
-        if target:
-            candidates.append({
-                "type": "troll",
-                "score": 4,
-                "action": ("message",
-                           random.choice(phrases.get("trolling", []))
-                           .replace("{user}", f"<a href='tg://user?id={target}'>коллега</a>"))
-            })
+    # ===== 4. RANDOM (ограниченный) =====
+    now = datetime.now(TIMEZONE)
 
-    # ===== 5. IDLE CHAT FILL =====
-    if random.random() < 0.1:
-        candidates.append({
-            "type": "idle",
-            "score": 2,
-            "action": ("message", random.choice(phrases.get("random", ["..."])))
-        })
+    if 9 <= now.hour < 18:
+        if last_random.get(chat_id) != now.date():
+            if random.random() < 0.1:
+                candidates.append((1, ("message", random.choice(
+                    phrases.get("random", ["..."])
+                ))))
 
+    # ===== ВЫБОР =====
     if not candidates:
         return None
 
-    # ===== SCORE SELECTION =====
-    candidates.sort(key=lambda x: x["score"], reverse=True)
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    top_score = candidates[0][0]
+    top = [c for c in candidates if c[0] == top_score]
 
-    top_score = candidates[0]["score"]
-    top = [c for c in candidates if c["score"] == top_score]
+    return random.choice(top)[1]
 
-    return random.choice(top)
-
-
-# ======================
-# HANDLER
-# ======================
+# ===== HANDLER =====
 
 @dp.message(~F.text.startswith("/"))
 async def handle(message: Message):
@@ -248,37 +179,25 @@ async def handle(message: Message):
         await human_reply(message, "Принято")
         return
 
-    # ===== PROMISE =====
-    if is_promise(text):
-        async with aiosqlite.connect("database.db") as db:
-            await db.execute(
-                "INSERT INTO promises VALUES (NULL, ?, ?, ?, ?)",
-                (chat_id, user_id, text, int(datetime.now().timestamp()))
-            )
-            await db.commit()
-        return
-
-    # ===== DECISION ENGINE =====
-    action = await decide_action(chat_id, user_id, text, lower, history)
+    # ===== DECISION =====
+    action = await decide_action(chat_id, text, lower, history)
 
     if not action:
         return
 
-    action_type, payload = action["action"]
+    action_type, payload = action
 
     if action_type == "reply":
         await human_reply(message, payload)
 
     elif action_type == "message":
-        await bot.send_message(chat_id, payload, parse_mode="HTML")
+        await bot.send_message(chat_id, payload)
+        last_random[chat_id] = datetime.now(TIMEZONE).date()
 
     elif action_type == "react":
         await message.react([ReactionTypeEmoji(emoji=payload)])
 
-
-# ======================
-# REMINDERS LOOP
-# ======================
+# ===== REMINDER LOOP =====
 
 async def reminder_loop():
     while True:
@@ -308,16 +227,12 @@ async def reminder_loop():
 
         await asyncio.sleep(60)
 
-
-# ======================
-# START
-# ======================
+# ===== START =====
 
 async def main():
     await init_db()
     asyncio.create_task(reminder_loop())
     await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
