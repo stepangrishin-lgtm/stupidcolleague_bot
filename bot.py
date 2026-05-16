@@ -62,15 +62,6 @@ async def save_message(chat_id, user_id):
 
 # ===== UTILS =====
 
-def detect_wave(history, keywords, threshold=3):
-    return sum(any(k in msg for k in keywords) for msg in history) >= threshold
-
-def detect_mode(history):
-    if detect_wave(history, ["принято", "ок", "согласен"]):
-        return "work"
-    if detect_wave(history, ["ахах", "лол", "😂", "🤣"]):
-        return "chat"
-    return "neutral"
 
 def parse_time(text):
     now = datetime.now(TIMEZONE)
@@ -109,24 +100,6 @@ async def decide_action(chat_id, text, lower, history):
     mode = detect_mode(history)
 
     candidates = []
-
-    # ===== 2. CONTEXT =====
-
-    if len(history) > 5:
-
-        # 🎉 ДР
-        if detect_wave(history, ["др", "с днем", "поздравляю"]):
-            candidates.append((5, ("reply", "С днём рождения 🎉")))
-
-        # ===== WORK MODE =====
-        if mode == "work":
-            if detect_wave(history, ["принято", "ок", "понял"]):
-                candidates.append((6, ("reply", random.choice(["принято", "ок"]))))
-
-        # ===== CHAT MODE =====
-        if mode == "chat":
-            if detect_wave(history, ["ахах", "лол", "😂", "🤣"]):
-                candidates.append((4, ("reply", random.choice(["😂", "ну да", "смешно"]))))
 
     # ===== 3. REACTIONS =====
     if any(w in lower for w in phrases.get("agree_words", [])):
