@@ -304,14 +304,14 @@ async def decide_action(message, history):
     # =====================================================
 
     if profile["promises"] >= 3:
-        if random.random() < 0.05:
+        if random.random() < 0.03:
             candidates.append((
                 55,
                 ("reply", "ты уже много чего обещал 🙂")
             ))
 
     if profile["messages"] >= 100:
-        if random.random() < 0.03:
+        if random.random() < 0.02:
             candidates.append((
                 45,
                 ("reply", "ты сегодня unusually активный")
@@ -337,7 +337,7 @@ async def decide_action(message, history):
 
         if last_random.get(chat_id) != now.date():
 
-            if random.random() < 0.01:
+            if random.random() < 0.001:
 
                 candidates.append((
                     10,
@@ -439,7 +439,7 @@ async def handle(message: Message):
         action_type, payload = action
 
         # delayed reactions
-        if random.random() < 0.25:
+        if random.random() < 0.15:
             delayed_queue.append((
                 datetime.now().timestamp() + random.randint(20, 90),
                 message,
@@ -600,7 +600,7 @@ async def npc_loop():
                     continue
 
                 # random npc message
-                if random.random() < 0.08:
+                if random.random() < 0.01:
 
                     await bot.send_message(
                         chat_id,
@@ -613,7 +613,7 @@ async def npc_loop():
                     )
 
                 # trolling
-                if random.random() < 0.15:
+                if random.random() < 0.01:
 
                     user_id = await get_target_user(chat_id)
 
